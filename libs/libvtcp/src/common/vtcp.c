@@ -100,13 +100,13 @@ int32_t vtcp_sendreq(uint16_t us_msgid, void *pv_buf, uint16_t us_len)
 	
 	make_vtcpmsg(us_msgid, pv_buf, us_len, &st_msg);
 	vtcpmsg_enc(&st_msg, &st_msgbuf);
-	
+	logi("[SENDREQ]");
+	vtcpmsg_buf_dump(&st_msgbuf);
+	logi("------------------------------\r\n");
 	i_ret = sock_send(st_msgbuf.auc_buf, st_msgbuf.ui_len);
 	if (0 > i_ret) {
 		loge("vtcp register msg send failed!");
 	}
-
-	/* Todo: if we got a reply then return */
 
 	return i_ret;
 }
@@ -116,11 +116,15 @@ int32_t vtcp_gotresp(vtcpmsg_s *pst_msg, uint8_t *puc_payload)
 	vtcpmsg_buf_s 	st_msgbuf;
 
 	/* Todo: got request response */
-	st_msgbuf.ui_len = sock_recv(st_msgbuf.auc_buf, sizeof(st_msgbuf.auc_buf), 5);
+	st_msgbuf.ui_len = sock_recv(st_msgbuf.auc_buf, sizeof(st_msgbuf.auc_buf), 0);
 	if (0 > st_msgbuf.ui_len) {
 		loge("got reply failed!");
 		return -1;
 	}
+
+	logi("[GOTRESP]");
+	vtcpmsg_buf_dump(&st_msgbuf);
+	logi("------------------------------\r\n");
 	vtcpmsg_dec(&st_msgbuf, pst_msg, puc_payload);
 	
 	return 0;
@@ -154,7 +158,7 @@ void vtcp_loop(vtcp_cb pf_cb)
 		} else {
 			if (FD_ISSET(i_fd, &st_rfds)) {
 				st_rcvbuf.ui_len = sock_recv(st_rcvbuf.auc_buf, sizeof(st_rcvbuf.auc_buf), 0);
-				if (0 > st_rcvbuf.ui_len) {
+				if (0 >= st_rcvbuf.ui_len) {
 					loge("got reply failed!");
 					continue;
 				}
@@ -191,6 +195,68 @@ int32_t vtcp_register(vtcp_reg_msg_s *pst_msg, vtcp_reg_rsp_s *pst_rsp)
 
 	return i_ret;
 }
+
+int32_t vtcp_authorise(vtcp_auth_msg_s *pst_msg, vtcprsp_s *pst_rsp)
+{
+	int32_t			i_ret = 0;
+	uint16_t		us_len = 0;
+	uint8_t			auc_payload[VTCP_PAYLOAD_LEN] = {0};
+	vtcpmsg_s 		st_msg;
+	
+	if ((NULL == pst_msg) || (NULL == pst_rsp)) {
+		return -1;
+	}
+	
+	/* Todo: encode term auth msg payload */
+	tmng_authmsg_enc(auc_payload, &us_len, pst_msg);
+
+	/* Todo: send register request message */
+	vtcp_sendreq(VTCP_MSG_AUTHORISE, auc_payload, us_len);
+	
+	/* Todo: wait and got response */
+	vtcp_gotresp(&st_msg, auc_payload);
+	
+	/* Todo: decode term auth response */
+	tmng_authrsp_dec(st_msg.pauc_payload, st_msg.st_msghdr.un_msgprop.prop.len, pst_rsp);
+
+	return i_ret;
+}
+
+int32_t vtcp_hb(vtcprsp_s *pst_rsp)
+{
+	vtcpmsg_s st_msg;
+	uint8_t	auc_payload[VTCP_PAYLOAD_LEN] = {0};
+	
+	/* Todo: send heart beat request message */
+	vtcp_sendreq(VTCP_MSG_HB, NULL, 0);
+	
+	/* Todo: wait and got response */
+	vtcp_gotresp(&st_msg, auc_payload);
+		
+	/* Todo: decode hb response */
+	tmng_hbrsp_dec(st_msg.pauc_payload, st_msg.st_msghdr.un_msgprop.prop.len, pst_rsp);
+	
+	return 0;
+}
+
+int32_t vtcp_unregister(vtcprsp_s *pst_rsp)
+{
+	vtcpmsg_s st_msg;
+	uint8_t	auc_payload[VTCP_PAYLOAD_LEN] = {0};
+	
+	/* Todo: send unregister request message */
+	vtcp_sendreq(VTCP_MSG_UNREGISTER, NULL, 0);
+	
+	/* Todo: wait and got response */
+	vtcp_gotresp(&st_msg, auc_payload);
+		
+	/* Todo: decode term unregister response */
+	tmng_unregrsp_dec(st_msg.pauc_payload, st_msg.st_msghdr.un_msgprop.prop.len, pst_rsp);
+	
+	return 0;
+
+}
+
 
 #ifdef __cplusplus
 }

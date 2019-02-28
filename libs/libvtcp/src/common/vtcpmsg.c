@@ -152,8 +152,10 @@ int32_t vtcpmsg_enc(vtcpmsg_s *pst_msg, vtcpmsg_buf_s *pst_buf)
 		PUTCHAR(pst_msg->st_msghdr.auc_bcd[i], puc_buf);
 	}
 	PUTSHORT(pst_msg->st_msghdr.us_seqnum, puc_buf);
-	memcpy(puc_buf, pst_msg->pauc_payload, pst_msg->st_msghdr.un_msgprop.prop.len);
-	puc_buf += pst_msg->st_msghdr.un_msgprop.prop.len;
+	if (pst_msg->pauc_payload && (0 < pst_msg->st_msghdr.un_msgprop.prop.len)) {
+		memcpy(puc_buf, pst_msg->pauc_payload, pst_msg->st_msghdr.un_msgprop.prop.len);
+		puc_buf += pst_msg->st_msghdr.un_msgprop.prop.len;
+	}
 	PUTCHAR(pst_msg->uc_crc, puc_buf);
 	PUTCHAR(pst_msg->uc_id1, puc_buf);
 	if (check_escape(pst_buf->auc_buf, (puc_buf - pst_buf->auc_buf))) {
@@ -192,12 +194,26 @@ int32_t vtcpmsg_dec(vtcpmsg_buf_s *pst_buf, vtcpmsg_s *pst_msg, uint8_t *puc_pay
 	uc_crc = vtcpmsg_calc_crc(&pst_msg->st_msghdr, pst_msg->pauc_payload);
 	GETCHAR(pst_msg->uc_crc, puc_buf);
 	if (pst_msg->uc_crc != uc_crc) {
-		loge("we got vtcp msg crc wrong!");
+		loge("we got vtcp msg crc wrong calc crc%02x %02x!", uc_crc, pst_msg->uc_crc);
 		return -1;
 	}
 	GETCHAR(pst_msg->uc_id1, puc_buf);
 	vtcpmsg_dump(pst_msg);
 
+	return 0;
+}
+
+int32_t vtcprsp_dec(uint8_t *puc_payload, uint16_t us_len, vtcprsp_s *pst_resp)
+{
+	if ((NULL == pst_resp) || (NULL == puc_payload) || 
+			(us_len != sizeof(vtcprsp_s))) {
+		return -1;
+	}
+	
+	GETSHORT(pst_resp->us_seqnum, puc_payload);
+	GETSHORT(pst_resp->us_msgid, puc_payload);
+	GETCHAR(pst_resp->uc_retcode, puc_payload);
+	
 	return 0;
 }
 

@@ -1,6 +1,6 @@
 /**
- * @file	: tmng.h
- * @brief	: terminal manage
+ * @file	: tmng_reg.c
+ * @brief	: terminal manage register
  * @version :
  * @author	: jyin
  * @date	: Jun 19, 2018

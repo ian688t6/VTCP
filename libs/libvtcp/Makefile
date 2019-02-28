@@ -2,9 +2,13 @@ DIR_INC = inc
 DIR_SRC = src
 
 SRC := src/common/sock.c
+SRC += src/common/timer.c
 SRC += src/common/vtcp.c
 SRC += src/common/vtcpmsg.c
-SRC += src/tmng/tmng.c
+SRC += src/tmng/tmng_reg.c
+SRC += src/tmng/tmng_unreg.c
+SRC += src/tmng/tmng_auth.c
+SRC += src/tmng/tmng_hb.c
 
 OBJ = $(patsubst %.c,%.o,${SRC}) 
 

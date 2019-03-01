@@ -26,9 +26,7 @@ int32_t tmng_authmsg_enc(uint8_t *puc_payload, uint16_t *pus_payload_len, vtcp_a
 	
 	for (i = 0; i < pst_msg->us_len; i ++) {
 		PUTCHAR(pst_msg->ac_authcode[i], puc_payload);
-		printf("%02x ", pst_msg->ac_authcode[i]);
 	}
-	printf("\n");
 	*pus_payload_len = puc_payload - puc_ptr;	
 
 	return 0;

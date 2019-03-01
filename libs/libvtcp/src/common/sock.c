@@ -23,7 +23,7 @@ int32_t sock_conn(const char *pc_addr, uint16_t us_port)
 	struct sockaddr_in st_addrinfo;
 
 	memset(pst_sock, 0x0, sizeof(sock_vtcp_s));
-	pst_sock->i_fd = socket(AF_INET, SOCK_STREAM, 0);
+	pst_sock->i_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (0 > pst_sock->i_fd) {
 		loge("sock conn create failed!");
 		return -1;
@@ -66,13 +66,9 @@ int32_t sock_send(const void *pv_buf, uint32_t ui_len)
 int32_t sock_recv(void *pv_buf, uint32_t ui_len, int32_t i_timeout)
 {
 	int32_t i_ret = 0; 
-	struct timeval st_timeo = {i_timeout, 0};
 	sock_vtcp_s *pst_sock = &gst_sock;
-		
-	pthread_mutex_lock(&pst_sock->st_lock);
-	setsockopt(pst_sock->i_fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&st_timeo, sizeof(st_timeo));
+	
 	i_ret = recv(pst_sock->i_fd, pv_buf, ui_len, 0);
-	pthread_mutex_unlock(&pst_sock->st_lock);
 	
 	return i_ret;
 }

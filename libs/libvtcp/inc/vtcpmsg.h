@@ -18,8 +18,14 @@ extern "C" {
 #define VTCP_ID_CODE				(0x7e)
 
 enum {
-	VTCP_MSG_REGISTER = 0x0100,
+	VTCP_MSG_RESP 				= 0x0001,
+	VTCP_MSG_REGISTER 			= 0x0100,
+	VTCP_MSG_AUTHORISE 			= 0x0102,
+	VTCP_MSG_HB 				= 0x0002,
+	VTCP_MSG_UNREGISTER 		= 0x0003,
 };
+
+#define PLATFORM_MSG(msgcode) (msgcode | (0x01 << 15))
 
 #define GETCHAR(c, cp) { \
 	unsigned char *t_cp = (unsigned char *)(cp); \
@@ -95,13 +101,21 @@ typedef struct {
 } __attribute__((packed)) vtcpmsg_s;
 
 typedef struct {
-	uint32_t		ui_len;
+	uint16_t		us_seqnum;
+	uint16_t		us_msgid;
+	uint8_t			uc_retcode;
+} __attribute__((packed)) vtcprsp_s;
+
+typedef struct {
+	int32_t			ui_len;
 	uint8_t			auc_buf[VTCP_MSG_LEN];
 } vtcpmsg_buf_s;
 
 extern int32_t vtcpmsg_enc(vtcpmsg_s *pst_msg, vtcpmsg_buf_s *pst_buf);
 
 extern int32_t vtcpmsg_dec(vtcpmsg_buf_s *pst_buf, vtcpmsg_s *pst_msg, uint8_t *puc_payload);
+
+extern int32_t vtcprsp_dec(uint8_t *puc_payload, uint16_t us_len, vtcprsp_s *pst_resp);
 
 extern void vtcpmsg_make(uint16_t us_msgid, uint8_t *puc_payload, uint32_t ui_payload_len, vtcpmsg_s *pst_msg);
 

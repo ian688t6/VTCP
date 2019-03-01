@@ -19,7 +19,7 @@ static timer_attr_s gst_timer;
 
 static void *loop(void *pv_arg)
 {
-//	vtcp_loop(NULL);
+	vtcp_loop(NULL);
 	return NULL;
 }
 
@@ -40,7 +40,7 @@ static int32_t device_register(void)
 	st_regmsg.uc_pltcolor = 0x1e;
 	strcpy(st_regmsg.ac_pltnums, "688t6");
 	vtcp_register(&st_regmsg, &st_regrsp);
-	logi("reg resp code: %02x len: %d", st_regrsp.uc_retcode, st_regrsp.ui_authcode_len);
+	logi("reg resp code: %02x len: %d %s", st_regrsp.uc_retcode, st_regrsp.ui_authcode_len, st_regrsp.ac_authcode);
 	if (VTCP_REGISTER_SUCC == st_regrsp.uc_retcode) {
 		/* Todo: save the auth code */
 		vtcp_getconf(&st_cfg);
@@ -52,7 +52,7 @@ static int32_t device_register(void)
 	return st_regrsp.uc_retcode;
 }
 
-static int32_t device_unregister(void)
+int32_t device_unregister(void)
 {
 	vtcprsp_s st_resp;
 	
@@ -79,7 +79,7 @@ int32_t device_auth(void)
 	return st_resp.uc_retcode;
 }
 
-static void vtcp_timer(void *pv_arg)
+void vtcp_timer(void *pv_arg)
 {
 	vtcprsp_s st_resp;
 

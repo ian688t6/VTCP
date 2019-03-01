@@ -62,8 +62,8 @@ int32_t tmng_regrsp_dec(uint8_t *puc_payload, uint16_t us_len, vtcp_reg_rsp_s *p
 		GETCHAR(pst_resp->ac_authcode[i], puc_payload);
 	}
 	pst_resp->ui_authcode_len = us_len;
-//	logi("len: %d authcode: %s", pst_resp->ui_authcode_len, pst_resp->ac_authcode);
-
+	logi("len: %d authcode: %s", pst_resp->ui_authcode_len, pst_resp->ac_authcode);
+	
 	return 0;
 }
 

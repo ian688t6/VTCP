@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-static int32_t check_escape(uint8_t *puc_seq, uint32_t ui_len)
+static int32_t check_escape(uint8_t *puc_seq, int32_t ui_len)
 {
 	int32_t i = 0;
 
@@ -25,7 +25,7 @@ static int32_t check_escape(uint8_t *puc_seq, uint32_t ui_len)
 	return 0;
 }
 
-static int32_t check_descape(uint8_t *puc_seq, uint32_t ui_len)
+static int32_t check_descape(uint8_t *puc_seq, int32_t ui_len)
 {
 	int32_t i = 0;
 
@@ -37,7 +37,7 @@ static int32_t check_descape(uint8_t *puc_seq, uint32_t ui_len)
 	return 0;
 }
 
-static void escape(uint8_t *puc_seq, uint32_t ui_srclen, uint32_t *pui_dstlen)
+static void escape(uint8_t *puc_seq, uint32_t ui_srclen, int32_t *pui_dstlen)
 {
 	uint32_t ui_len = ui_srclen;
 	uint8_t *puc_ch	= NULL;
@@ -77,7 +77,7 @@ static void escape(uint8_t *puc_seq, uint32_t ui_srclen, uint32_t *pui_dstlen)
 	return;
 }
 
-static void descape(uint8_t *puc_seq, uint32_t ui_len, uint32_t *pui_dstlen)
+static void descape(uint8_t *puc_seq, uint32_t ui_len, int32_t *pui_dstlen)
 {
 	int32_t i = 0;
 	uint8_t *puc_tmp = puc_seq;
@@ -126,7 +126,7 @@ int32_t vtcpmsg_calc_crc(vtcpmsg_hdr_s *pst_hdr, uint8_t *puc_payload)
 	}
 	
 	if (puc_payload) {
-		for (i = 1; i < pst_hdr->un_msgprop.prop.len; i ++) {
+		for (i = 0; i < pst_hdr->un_msgprop.prop.len; i ++) {
 			uc_crc ^= puc_payload[i];
 		}
 	}

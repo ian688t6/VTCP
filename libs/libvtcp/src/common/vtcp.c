@@ -16,35 +16,130 @@ extern "C" {
 
 static vtcp_s gst_vtcp;
 
-static void make_vtcpmsg(uint16_t us_msgid, uint8_t *puc_payload, uint32_t ui_payload_len, vtcpmsg_s *pst_msg)
+static vrb_s *new_vrb(uint16_t us_msgid, uint8_t *puc_payload, uint16_t us_len)
+{
+	vrb_s *pst_vrb = NULL;	
+	
+	pst_vrb = (vrb_s *)malloc(sizeof(vrb_s));
+	if (NULL == pst_vrb) {
+		loge("vrb alloc failed!");
+		return NULL;	
+	}
+	memset(pst_vrb, 0x0, sizeof(vrb_s));
+	memcpy(pst_vrb->auc_payload, puc_payload, us_len);
+	pst_vrb->us_len		= us_len;
+	pst_vrb->us_msgid	= us_msgid;
+	
+	return pst_vrb;
+}
+
+static void del_vrb(vrb_s *pst_vrb)
 {
 	vtcp_s *pst_vtcp = &gst_vtcp; 
 	
-	pst_msg->uc_id0 							= VTCP_ID_CODE;
-	pst_msg->pauc_payload 						= puc_payload;
-	pst_msg->st_msghdr.us_msgid 				= us_msgid;
-	pst_msg->st_msghdr.un_msgprop.prop.len 		= ui_payload_len;
-	pst_msg->st_msghdr.un_msgprop.prop.crypt 	= 0;
-	pst_msg->st_msghdr.un_msgprop.prop.split 	= 0;
-	memcpy(pst_msg->st_msghdr.auc_bcd, pst_vtcp->st_cfg.auc_telnum, sizeof(pst_msg->st_msghdr.auc_bcd));
-	pst_msg->st_msghdr.us_seqnum 				= pst_vtcp->us_seqnum;
-	pst_msg->uc_crc 							= vtcpmsg_calc_crc(&pst_msg->st_msghdr, pst_msg->pauc_payload);
-	pst_msg->uc_id1 							= VTCP_ID_CODE;
-	pst_vtcp->us_seqnum ++;
-	
+	pthread_mutex_lock(&pst_vtcp->st_lock);	
+	list_del(&pst_vrb->list);
+	free(pst_vrb);
+	pthread_mutex_unlock(&pst_vtcp->st_lock);
 	return;
 }
 
-void *loopreqs(void *pv_arg)
+static int32_t wait_complete(int32_t i_flag)
 {
-	for (;;) {
-	}	
+	static int32_t i_retries = 0;
+	struct timespec st_waiter;
+
+	if (1 == i_flag) {
+		i_retries = 0;
+		logi("complete");
+		return 0;
+	}
+
+	st_waiter.tv_sec = 0;
+	st_waiter.tv_nsec = 10000;
+	nanosleep(&st_waiter, NULL);
+	if (i_retries ++ < 50000)
+		return 1;
+	i_retries = 0;
+	return 0;
+}
+
+static vrb_s *search_forvrb(uint16_t us_msgid, uint16_t us_seqnum)
+{
+	vrb_s 	*n;
+	vrb_s 	*node;
+	vtcp_s 	*pst_vtcp = &gst_vtcp; 
+	
+	pthread_mutex_lock(&pst_vtcp->st_lock);
+	list_for_each_entry_safe(node, n, &pst_vtcp->vrb_list, list) {
+		if ((node->us_seqnum == us_seqnum) && (node->us_msgid == us_msgid)) {
+			pthread_mutex_unlock(&pst_vtcp->st_lock);
+			return node;
+		}	
+	}
+	pthread_mutex_unlock(&pst_vtcp->st_lock);
 
 	return NULL;
 }
 
-void looprecv(void)
+static void do_common_resp(vtcpmsg_s *pst_msg)
 {
+	vrb_s 	*pst_vrb = NULL;
+	vtcprsp_s st_resp;
+	
+	vtcprsp_dec(pst_msg->pauc_payload, pst_msg->st_msghdr.un_msgprop.prop.len, &st_resp);
+	pst_vrb = search_forvrb(st_resp.us_msgid, st_resp.us_seqnum);
+	if (NULL == pst_vrb) {
+		return;
+	}
+	memcpy(pst_vrb->auc_payload, &st_resp, sizeof(vtcprsp_s));	
+	pst_vrb->us_len = sizeof(vtcprsp_s);
+	pst_vrb->ui_comp = 1;
+
+	return;
+}
+
+static void do_register_resp(vtcpmsg_s *pst_msg)
+{
+	vrb_s 	*pst_vrb = NULL;
+	vtcp_reg_rsp_s st_resp;
+
+	tmng_regrsp_dec(pst_msg->pauc_payload, pst_msg->st_msghdr.un_msgprop.prop.len, &st_resp);
+	pst_vrb = search_forvrb(VTCP_MSG_REGISTER, st_resp.us_seqnum);
+	if (NULL == pst_vrb) {
+		return;
+	}
+	
+	memcpy(pst_vrb->auc_payload, &st_resp, sizeof(vtcp_reg_rsp_s));	
+	pst_vrb->us_len = sizeof(vtcp_reg_rsp_s);
+	pst_vrb->ui_comp = 1;
+	logi("do register resp");
+
+	return;
+}
+
+static void dispatch(void)
+{
+	int32_t 	i_ret = 0;
+	vtcpmsg_s 	st_msg;
+	uint8_t		auc_payload[VTCP_PAYLOAD_LEN] = {0};
+	
+	i_ret = vtcp_gotresp(&st_msg, auc_payload);
+	if (0 != i_ret) {
+		loge("vtcp got resp failed!");
+		return;
+	}
+	switch (st_msg.st_msghdr.us_msgid) {
+	case PLATFORM_MSG(VTCP_MSG_RESP):
+		do_common_resp(&st_msg);	
+	break;
+
+	case PLATFORM_MSG(VTCP_MSG_REGISTER):
+		do_register_resp(&st_msg);
+	break;
+	default:break;
+	}
+
 	return;
 }
 
@@ -70,7 +165,8 @@ void vtcp_getconf(vtcp_cfg_s *pst_val)
 int32_t vtcp_conn(void)
 {
 	vtcp_s *pst_vtcp = &gst_vtcp;
-	pst_vtcp->us_seqnum = 2;
+	pst_vtcp->us_seqnum = 0;
+	INIT_LIST_HEAD(&pst_vtcp->vrb_list);
 	pthread_mutex_init(&pst_vtcp->st_lock, NULL);
 	return sock_conn(pst_vtcp->st_cfg.pc_addr, pst_vtcp->st_cfg.us_port);
 }
@@ -92,14 +188,34 @@ int32_t vtcp_isauth(void)
 	return 0;
 }
 
-int32_t vtcp_sendreq(uint16_t us_msgid, void *pv_buf, uint16_t us_len)
+int32_t vtcp_sendreq(vrb_s *pst_vrb)
 {
 	int32_t			i_ret = 0;
 	vtcpmsg_s 		st_msg;
 	vtcpmsg_buf_s 	st_msgbuf;
+	vtcp_s 			*pst_vtcp = &gst_vtcp;
 	
-	make_vtcpmsg(us_msgid, pv_buf, us_len, &st_msg);
+	if (NULL == pst_vrb) {
+		return -1;
+	}
+	
+	st_msg.uc_id0 							= VTCP_ID_CODE;
+	st_msg.pauc_payload 					= pst_vrb->auc_payload;
+	st_msg.st_msghdr.us_msgid 				= pst_vrb->us_msgid;
+	st_msg.st_msghdr.un_msgprop.prop.len 	= pst_vrb->us_len;
+	st_msg.st_msghdr.un_msgprop.prop.crypt 	= 0;
+	st_msg.st_msghdr.un_msgprop.prop.split 	= 0;
+	st_msg.st_msghdr.us_seqnum 				= pst_vtcp->us_seqnum;
+	memcpy(st_msg.st_msghdr.auc_bcd, pst_vtcp->st_cfg.auc_telnum, sizeof(st_msg.st_msghdr.auc_bcd));
+	st_msg.uc_crc 							= vtcpmsg_calc_crc(&st_msg.st_msghdr, st_msg.pauc_payload);
+	st_msg.uc_id1 							= VTCP_ID_CODE;
+	pst_vtcp->us_seqnum ++;
+	
 	vtcpmsg_enc(&st_msg, &st_msgbuf);
+	pst_vrb->us_seqnum 	= st_msg.st_msghdr.us_seqnum;
+	pthread_mutex_lock(&pst_vtcp->st_lock);	
+	list_add(&pst_vrb->list, &pst_vtcp->vrb_list);
+	pthread_mutex_unlock(&pst_vtcp->st_lock);	
 	logi("[SENDREQ]");
 	vtcpmsg_buf_dump(&st_msgbuf);
 	logi("------------------------------\r\n");
@@ -117,36 +233,32 @@ int32_t vtcp_gotresp(vtcpmsg_s *pst_msg, uint8_t *puc_payload)
 
 	/* Todo: got request response */
 	st_msgbuf.ui_len = sock_recv(st_msgbuf.auc_buf, sizeof(st_msgbuf.auc_buf), 0);
-	if (0 > st_msgbuf.ui_len) {
+	if (0 >= st_msgbuf.ui_len) {
 		loge("got reply failed!");
 		return -1;
 	}
 
-	logi("[GOTRESP]");
+	logi("[GOTRESP] len=%d", st_msgbuf.ui_len);
 	vtcpmsg_buf_dump(&st_msgbuf);
 	logi("------------------------------\r\n");
-	vtcpmsg_dec(&st_msgbuf, pst_msg, puc_payload);
-	
-	return 0;
+	return vtcpmsg_dec(&st_msgbuf, pst_msg, puc_payload);
 }
 
 void vtcp_loop(vtcp_cb pf_cb)
 {
     fd_set st_rfds;
-    struct timeval st_timeval;
-	vtcpmsg_buf_s  st_rcvbuf;
+ 	struct timeval st_timeval;
 	int32_t i_ret 	= 0;
 	int32_t i_maxfd = 0;
-	int32_t i_fd 	= sock_getfd();
 	
-	if (i_maxfd <= i_fd) {
-		i_maxfd = i_fd;
+	if (i_maxfd <= sock_getfd()) {
+		i_maxfd = sock_getfd();
 	}	
 	
 	/* looprecv */
-	for (;;) {
+	for (;;) {		
 		FD_ZERO(&st_rfds);
-		FD_SET(i_fd, &st_rfds);
+		FD_SET(sock_getfd(), &st_rfds);
 		st_timeval.tv_sec  = 3;
 		st_timeval.tv_usec = 0;
 		i_ret = select(i_maxfd + 1, &st_rfds, NULL, NULL, &st_timeval);
@@ -156,14 +268,8 @@ void vtcp_loop(vtcp_cb pf_cb)
 		} else if (i_ret == 0) {
 			continue;
 		} else {
-			if (FD_ISSET(i_fd, &st_rfds)) {
-				st_rcvbuf.ui_len = sock_recv(st_rcvbuf.auc_buf, sizeof(st_rcvbuf.auc_buf), 0);
-				if (0 >= st_rcvbuf.ui_len) {
-					loge("got reply failed!");
-					continue;
-				}
-				logi("loop");
-				vtcpmsg_buf_dump(&st_rcvbuf);	
+			if (FD_ISSET(sock_getfd(), &st_rfds)) {
+				dispatch();	
 			}
 		}
 	}
@@ -175,8 +281,8 @@ int32_t vtcp_register(vtcp_reg_msg_s *pst_msg, vtcp_reg_rsp_s *pst_rsp)
 	int32_t			i_ret = 0;
 	uint16_t		us_len = 0;
 	uint8_t			auc_payload[VTCP_PAYLOAD_LEN] = {0};
-	vtcpmsg_s 		st_msg;
-	
+	vrb_s			*pst_vrb = NULL;	
+
 	if ((NULL == pst_msg) || (NULL == pst_rsp)) {
 		return -1;
 	}
@@ -184,14 +290,24 @@ int32_t vtcp_register(vtcp_reg_msg_s *pst_msg, vtcp_reg_rsp_s *pst_rsp)
 	/* Todo: encode term register msg payload */
 	tmng_regmsg_enc(auc_payload, &us_len, pst_msg);
 	
+	/* Todo: create vrb */
+	pst_vrb = new_vrb(VTCP_MSG_REGISTER, auc_payload, us_len);	
+	if (NULL == pst_vrb) {
+		loge("vrb alloc failed!");
+		return -1;	
+	}
+
 	/* Todo: send register request message */
-	vtcp_sendreq(VTCP_MSG_REGISTER, auc_payload, us_len);
+	vtcp_sendreq(pst_vrb);
 	
 	/* Todo: wait and got response */
-	vtcp_gotresp(&st_msg, auc_payload);
-	
+	while (wait_complete(pst_vrb->ui_comp));
+	i_ret = pst_vrb->ui_comp == 1 ? 0 : -1;
+	if (!i_ret) memcpy(pst_rsp, pst_vrb->auc_payload, pst_vrb->us_len);
+
 	/* Todo: decode term register response */
-	tmng_regrsp_dec(st_msg.pauc_payload, st_msg.st_msghdr.un_msgprop.prop.len, pst_rsp);
+	logi("do register done");
+	del_vrb(pst_vrb);
 
 	return i_ret;
 }
@@ -201,7 +317,7 @@ int32_t vtcp_authorise(vtcp_auth_msg_s *pst_msg, vtcprsp_s *pst_rsp)
 	int32_t			i_ret = 0;
 	uint16_t		us_len = 0;
 	uint8_t			auc_payload[VTCP_PAYLOAD_LEN] = {0};
-	vtcpmsg_s 		st_msg;
+	vrb_s			*pst_vrb = NULL;	
 	
 	if ((NULL == pst_msg) || (NULL == pst_rsp)) {
 		return -1;
@@ -209,54 +325,79 @@ int32_t vtcp_authorise(vtcp_auth_msg_s *pst_msg, vtcprsp_s *pst_rsp)
 	
 	/* Todo: encode term auth msg payload */
 	tmng_authmsg_enc(auc_payload, &us_len, pst_msg);
+	
+	/* Todo: create vrb */
+	pst_vrb = new_vrb(VTCP_MSG_AUTHORISE, auc_payload, us_len);	
+	if (NULL == pst_vrb) {
+		loge("vrb alloc failed!");
+		return -1;	
+	}
 
 	/* Todo: send register request message */
-	vtcp_sendreq(VTCP_MSG_AUTHORISE, auc_payload, us_len);
-	
+	vtcp_sendreq(pst_vrb);
+
 	/* Todo: wait and got response */
-	vtcp_gotresp(&st_msg, auc_payload);
+	while (wait_complete(pst_vrb->ui_comp));
+	i_ret = pst_vrb->ui_comp == 1 ? 0 : -1;
+	if (!i_ret) memcpy(pst_rsp, pst_vrb->auc_payload, pst_vrb->us_len);
 	
-	/* Todo: decode term auth response */
-	tmng_authrsp_dec(st_msg.pauc_payload, st_msg.st_msghdr.un_msgprop.prop.len, pst_rsp);
+	/* Todo: del vrb */
+	del_vrb(pst_vrb);
 
 	return i_ret;
 }
 
 int32_t vtcp_hb(vtcprsp_s *pst_rsp)
 {
-	vtcpmsg_s st_msg;
-	uint8_t	auc_payload[VTCP_PAYLOAD_LEN] = {0};
+	vrb_s	*pst_vrb = NULL;	
+	int32_t  i_ret	 = 0;
 	
+	/* Todo: create vrb */
+	pst_vrb = new_vrb(VTCP_MSG_HB, NULL, 0);	
+	if (NULL == pst_vrb) {
+		loge("vrb alloc failed!");
+		return -1;	
+	}
+
 	/* Todo: send heart beat request message */
-	vtcp_sendreq(VTCP_MSG_HB, NULL, 0);
+	vtcp_sendreq(pst_vrb);
 	
 	/* Todo: wait and got response */
-	vtcp_gotresp(&st_msg, auc_payload);
-		
-	/* Todo: decode hb response */
-	tmng_hbrsp_dec(st_msg.pauc_payload, st_msg.st_msghdr.un_msgprop.prop.len, pst_rsp);
-	
-	return 0;
+	while (wait_complete(pst_vrb->ui_comp));
+	i_ret = pst_vrb->ui_comp == 1 ? 0 : -1;
+	if (!i_ret) memcpy(pst_rsp, pst_vrb->auc_payload, pst_vrb->us_len);
+
+	/* Todo: del vrb */
+	del_vrb(pst_vrb);
+
+	return i_ret;
 }
 
 int32_t vtcp_unregister(vtcprsp_s *pst_rsp)
 {
-	vtcpmsg_s st_msg;
-	uint8_t	auc_payload[VTCP_PAYLOAD_LEN] = {0};
+	vrb_s	*pst_vrb = NULL;	
+	int32_t  i_ret	 = 0;
 	
+	/* Todo: create vrb */
+	pst_vrb = new_vrb(VTCP_MSG_UNREGISTER, NULL, 0);	
+	if (NULL == pst_vrb) {
+		loge("vrb alloc failed!");
+		return -1;	
+	}
+
 	/* Todo: send unregister request message */
-	vtcp_sendreq(VTCP_MSG_UNREGISTER, NULL, 0);
+	vtcp_sendreq(pst_vrb);
 	
 	/* Todo: wait and got response */
-	vtcp_gotresp(&st_msg, auc_payload);
+	while (wait_complete(pst_vrb->ui_comp));
+	i_ret = pst_vrb->ui_comp == 1 ? 0 : -1;
+	if (!i_ret) memcpy(pst_rsp, pst_vrb->auc_payload, pst_vrb->us_len);
 		
-	/* Todo: decode term unregister response */
-	tmng_unregrsp_dec(st_msg.pauc_payload, st_msg.st_msghdr.un_msgprop.prop.len, pst_rsp);
-	
-	return 0;
+	/* Todo: del vrb */
+	del_vrb(pst_vrb);
 
+	return i_ret;
 }
-
 
 #ifdef __cplusplus
 }

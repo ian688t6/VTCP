@@ -18,7 +18,6 @@ extern "C" {
 #include "vtcpmsg.h"
 #include "tmng.h"
 
-
 typedef enum {
 	VTCP_REGISTER_SUCC 			= 0,
 	VTCP_VIEHCLE_REGISTERED		= 1,
@@ -28,7 +27,7 @@ typedef enum {
 } vtcp_reg_code_e;
 
 typedef struct {
-	uint32_t		ui_len;
+	int32_t			ui_len;
 	uint8_t			auc_code[32];
 } vtcp_authcode_s;
 
@@ -39,13 +38,23 @@ typedef struct {
 	vtcp_authcode_s	st_authcode;
 } vtcp_cfg_s;
 
+typedef struct {
+	struct list_head 	list;
+	uint16_t			us_seqnum;
+	uint16_t			us_msgid;
+	uint32_t			ui_comp;
+	uint8_t				auc_payload[VTCP_PAYLOAD_LEN];
+	uint16_t			us_len;
+} vrb_s;
+
 typedef int32_t (*vtcp_cb)(uint32_t ui_state, void *pv_data, uint32_t ui_size);
 typedef struct {
-	vtcp_cfg_s		st_cfg;
-	pthread_t		tid;
-	vtcp_cb			pf_cb;
-	uint16_t		us_seqnum;
-	pthread_mutex_t	st_lock;
+	vtcp_cfg_s			st_cfg;
+	pthread_t			tid;
+	vtcp_cb				pf_cb;
+	uint16_t			us_seqnum;
+	pthread_mutex_t		st_lock;
+	struct list_head 	vrb_list;
 } vtcp_s;
 
 static inline uint8_t bin2bcd(uint8_t uc_val)
@@ -70,11 +79,17 @@ extern int32_t vtcp_isauth(void);
 
 extern void vtcp_loop(vtcp_cb pf_cb);
 
-extern int32_t vtcp_sendreq(uint16_t us_msgid, void *pv_buf, uint16_t us_len);
+extern int32_t vtcp_sendreq(vrb_s *pst_vrb);
 
 extern int32_t vtcp_gotresp(vtcpmsg_s *pst_msg, uint8_t *puc_payload);
 
 extern int32_t vtcp_register(vtcp_reg_msg_s *pst_msg, vtcp_reg_rsp_s *pst_rsp);
+
+extern int32_t vtcp_authorise(vtcp_auth_msg_s *pst_msg, vtcprsp_s *pst_rsp);
+
+extern int32_t vtcp_hb(vtcprsp_s *pst_rsp);
+
+extern int32_t vtcp_unregister(vtcprsp_s *pst_rsp);
 
 #ifdef __cplusplus
 }

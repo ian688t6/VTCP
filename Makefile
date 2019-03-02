@@ -21,12 +21,12 @@ endef
 all:
 	@echo "make build vtcp"	
 	$(call modules_build)
-	@make -C dvrd
+	@make -C demo
 
 clean:
 	@echo "make clean vtcp"	
 	$(call modules_clean)
-	@make clean -C dvrd
+	@make clean -C demo
 cleanall:clean
 	@rm -rf build
 

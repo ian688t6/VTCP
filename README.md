@@ -20,4 +20,4 @@ libvtcp is a liberary for VTCP
 - gdata
 	Generic data
 
-Test: vtcpd 39.108.194.249 6608
+Test: demo 39.108.194.249 6608

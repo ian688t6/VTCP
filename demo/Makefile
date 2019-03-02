@@ -11,7 +11,7 @@ else
 LDFLAG := -static -Wl,-dn -L$(VCP_BUILD)/lib -lvtcp -lm -lrt
 endif
 
-TARGET = vtcpd
+TARGET = demo
 
 ${TARGET}:${OBJ}
 	$(CC) $^ -o $@ $(CFLAGS) $(LDFLAG) 

@@ -173,6 +173,7 @@ int32_t main(int argc, char *pc_argv[])
 		
 	}
 	device_unregister();
+	vtcp_authrm();
 	vtcp_disconn();
 
 	return 0;

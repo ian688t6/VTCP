@@ -48,15 +48,6 @@ typedef struct {
 	uint8_t			auc_telnum[6];
 } vtcp_cfg_s;
 
-typedef struct {
-	struct list_head 	list;
-	uint16_t			us_seqnum;
-	uint16_t			us_msgid;
-	uint32_t			ui_comp;
-	uint8_t				auc_payload[VTCP_PAYLOAD_LEN];
-	uint16_t			us_len;
-} vrb_s;
-
 typedef int32_t (*vtcp_cb)(uint16_t us_seqnum, uint16_t us_msgid, uint8_t *puc_payload, uint16_t us_len);
 typedef struct {
 	vtcp_cfg_s			st_cfg;
@@ -94,10 +85,6 @@ extern void vtcp_authrm(void);
 extern int32_t vtcp_isauth(void);
 
 extern void vtcp_loop(vtcp_cb pf_cb);
-
-extern int32_t vtcp_sendreq(vrb_s *pst_vrb);
-
-extern int32_t vtcp_gotresp(vtcpmsg_s *pst_msg, uint8_t *puc_payload);
 
 extern int32_t vtcp_register(vtcp_reg_msg_s *pst_msg, vtcp_reg_rsp_s *pst_rsp);
 

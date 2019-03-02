@@ -152,6 +152,10 @@ void vtcp_setconf(vtcp_cfg_s *pst_val)
 {
 	vtcp_cfg_s *pst_cfg = &gst_vtcp.st_cfg;
 	*pst_cfg = *pst_val;
+	
+	if (NULL == pst_cfg->pc_authfile) {
+		pst_cfg->pc_authfile = VTCP_DEFAULT_AUTHFILE;
+	}
 
 	logd("vtcp server-%s:%d telnum-%02x%02x%02x%02x%02x%02x", 
 	pst_cfg->pc_addr, pst_cfg->us_port,
@@ -191,11 +195,62 @@ void vtcp_disconn(void)
 	return;
 }
 
+int32_t vtcp_authsave(vtcp_authcode_s *pst_auth)
+{
+	int32_t i_fd 	= 0;
+	int32_t i_len 	= 0;
+	vtcp_cfg_s *pst_cfg = &gst_vtcp.st_cfg;
+
+	if (NULL == pst_auth) {
+		return -1;
+	}
+
+	i_fd = open(pst_cfg->pc_authfile, (O_CREAT|O_RDWR), 0655);
+	if (0 > i_fd) {
+		loge("vtcp save auth failed!");
+		return -1;
+	}
+	i_len = write(i_fd, pst_auth->auc_code, pst_auth->ui_len);
+	close(i_fd);
+
+	return i_len != pst_auth->ui_len ? -1 : 0;
+}
+
+int32_t vtcp_authload(vtcp_authcode_s *pst_auth)
+{
+	int32_t i_fd 	= 0;
+	int32_t i_len 	= 0;
+	vtcp_cfg_s *pst_cfg = &gst_vtcp.st_cfg;
+
+	if (NULL == pst_auth) {
+		return -1;
+	}
+	
+	i_fd = open(pst_cfg->pc_authfile, O_RDONLY);
+	if (0 > i_fd) {
+		loge("vtcp load auth failed!");
+		return -1;
+	}
+	pst_auth->ui_len = lseek(i_fd, 0, SEEK_END);
+	lseek(i_fd, 0, SEEK_SET);
+	i_len = read(i_fd, pst_auth->auc_code, pst_auth->ui_len);
+	close(i_fd);
+
+	return i_len != pst_auth->ui_len ? -1 : 0;
+}
+
+void vtcp_authrm(void)
+{
+	vtcp_cfg_s *pst_cfg = &gst_vtcp.st_cfg;
+	remove(pst_cfg->pc_authfile);
+	return;
+}
+
 int32_t vtcp_isauth(void)
 {
 	/* Todo: check vtcp is authorised */
-
-	return 0;
+	vtcp_cfg_s *pst_cfg = &gst_vtcp.st_cfg;
+	return access(pst_cfg->pc_authfile, F_OK);
 }
 
 int32_t vtcp_sendreq(vrb_s *pst_vrb)

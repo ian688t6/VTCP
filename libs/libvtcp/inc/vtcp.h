@@ -18,6 +18,8 @@ extern "C" {
 #include "vtcpmsg.h"
 #include "tmng.h"
 
+#define VTCP_DEFAULT_AUTHFILE	"auth.bin"
+
 typedef enum {
 	VTCP_REGISTER_SUCC 			= 0,
 	VTCP_VIEHCLE_REGISTERED		= 1,
@@ -41,9 +43,9 @@ typedef struct {
 
 typedef struct {
 	const char 		*pc_addr;
+	const char		*pc_authfile;
 	uint16_t 		us_port;
 	uint8_t			auc_telnum[6];
-	vtcp_authcode_s	st_authcode;
 } vtcp_cfg_s;
 
 typedef struct {
@@ -82,6 +84,12 @@ extern void vtcp_getconf(vtcp_cfg_s *pst_cfg);
 extern int32_t vtcp_conn(void);
 
 extern void vtcp_disconn(void);
+
+extern int32_t vtcp_authsave(vtcp_authcode_s *pst_auth);
+
+extern int32_t vtcp_authload(vtcp_authcode_s *pst_auth);
+
+extern void vtcp_authrm(void);
 
 extern int32_t vtcp_isauth(void);
 

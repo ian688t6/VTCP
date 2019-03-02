@@ -15,6 +15,7 @@
 extern "C" {
 #endif
 
+#define VTCP_AUTHFILE	"auth.bin"
 static timer_attr_s gst_timer;
 
 static int32_t msg_cb(uint16_t us_seqnum, uint16_t us_msgid, uint8_t *puc_payload, uint16_t us_len)
@@ -40,9 +41,10 @@ static void *loop(void *pv_arg)
 
 static int32_t device_register(void)
 {
-	vtcp_cfg_s st_cfg;
+	int32_t i_ret = 0;
 	vtcp_reg_msg_s st_regmsg;
 	vtcp_reg_rsp_s st_regrsp;
+	vtcp_authcode_s st_auth;
 	uint8_t auc_manufacid[5] = {'R', 'F', 'D', 'E', 'V'};
 	uint8_t auc_ttype[8] = {'D', 'V', 'R', ' ', ' ', ' ', ' ', ' '};
 	uint8_t auc_tid[7] = {'G', 'A', '6', '8', '8', 'T', '6'};
@@ -58,11 +60,16 @@ static int32_t device_register(void)
 	logi("reg resp code: %02x len: %d %s", st_regrsp.uc_retcode, st_regrsp.ui_authcode_len, st_regrsp.ac_authcode);
 	if (VTCP_REGISTER_SUCC == st_regrsp.uc_retcode) {
 		/* Todo: save the auth code */
-		vtcp_getconf(&st_cfg);
-		memset(st_cfg.st_authcode.auc_code, 0x0, sizeof(vtcp_authcode_s));
-		st_cfg.st_authcode.ui_len = st_regrsp.ui_authcode_len;
-		memcpy(st_cfg.st_authcode.auc_code, st_regrsp.ac_authcode, st_cfg.st_authcode.ui_len);
-		vtcp_setconf(&st_cfg);
+//		vtcp_getconf(&st_cfg);
+//		memset(st_cfg.st_authcode.auc_code, 0x0, sizeof(vtcp_authcode_s));
+		st_auth.ui_len = st_regrsp.ui_authcode_len;
+		memcpy(st_auth.auc_code, st_regrsp.ac_authcode, st_auth.ui_len);
+		i_ret = vtcp_authsave(&st_auth);
+		if (0 != i_ret) {
+			loge("vtcp auth save failed");
+			return -1;
+		}
+//		vtcp_setconf(&st_cfg);
 	}
 	return st_regrsp.uc_retcode;
 }
@@ -79,14 +86,19 @@ int32_t device_unregister(void)
 }
 
 int32_t device_auth(void)
-{
-	vtcp_cfg_s st_cfg;
+{	
+	int32_t i_ret = 0;
+	vtcp_authcode_s st_auth;
 	vtcp_auth_msg_s st_authmsg;
 	vtcprsp_s st_resp;
 
-	vtcp_getconf(&st_cfg);
-	st_authmsg.us_len = st_cfg.st_authcode.ui_len;
-	memcpy(st_authmsg.ac_authcode, st_cfg.st_authcode.auc_code, st_authmsg.us_len);
+	i_ret = vtcp_authload(&st_auth);
+	if (0 != i_ret) {
+		loge("vtcp authload failed");
+		return -1;
+	}
+	st_authmsg.us_len = st_auth.ui_len;
+	memcpy(st_authmsg.ac_authcode, st_auth.auc_code, st_authmsg.us_len);
 	vtcp_authorise(&st_authmsg, &st_resp);
 	logi("auth resp: seqnum-%04x msgid-%04x retcode-%02x", 
 		st_resp.us_seqnum, st_resp.us_msgid, st_resp.uc_retcode);
@@ -125,7 +137,8 @@ int32_t main(int argc, char *pc_argv[])
 	}
 //	log_set_level(1);
 	st_cfg.pc_addr = (const char *)pc_argv[1];
-	st_cfg.us_port = strtoul(pc_argv[2], NULL, 0); 	
+	st_cfg.us_port = strtoul(pc_argv[2], NULL, 0);
+	st_cfg.pc_authfile = NULL;
 	st_cfg.auc_telnum[0] = bin2bcd(0x01);
 	st_cfg.auc_telnum[1] = bin2bcd(0x99);
 	st_cfg.auc_telnum[2] = bin2bcd(0x17);

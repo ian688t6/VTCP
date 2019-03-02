@@ -17,9 +17,24 @@ extern "C" {
 
 static timer_attr_s gst_timer;
 
+static int32_t msg_cb(uint16_t us_seqnum, uint16_t us_msgid, uint8_t *puc_payload, uint16_t us_len)
+{
+	int32_t i = 0;
+
+	logi("MSG - seqnum: %04x msgid: %04x payload_len: %d", us_seqnum, us_msgid, us_len);
+	if (puc_payload) {
+		for (i = 0; i < us_len; i ++) {
+			printf("%02x ", puc_payload[i]);
+		}
+	}
+	printf("\n");
+
+	return 0;
+}
+
 static void *loop(void *pv_arg)
 {
-	vtcp_loop(NULL);
+	vtcp_loop(msg_cb);
 	return NULL;
 }
 

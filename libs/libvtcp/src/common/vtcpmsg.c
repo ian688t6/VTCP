@@ -43,7 +43,7 @@ static void escape(uint8_t *puc_seq, uint32_t ui_srclen, int32_t *pui_dstlen)
 	uint8_t *puc_ch	= NULL;
 	uint8_t *puc_nseq = NULL;
 
-	logi("do escape: len = %d", ui_srclen);
+	logd("do escape: len = %d", ui_srclen);
 	/* Todo: alloc new seq */
 	puc_nseq = (uint8_t *)malloc(ui_srclen);
 	if (!puc_nseq) {
@@ -221,25 +221,27 @@ void vtcpmsg_dump(vtcpmsg_s *pst_msg)
 {
 	int32_t i = 0;
 
-	logi("VTCPID: %02x", pst_msg->uc_id0);
-	logi("vtcpmsg header: msgid-%04x, prop-%04x len-%04x crypt-%04x split-%04x resv-%04x",
+	logd("VTCPID: %02x", pst_msg->uc_id0);
+	logd("vtcpmsg header: msgid-%04x, prop-%04x len-%04x crypt-%04x split-%04x resv-%04x",
 		pst_msg->st_msghdr.us_msgid, 
 		pst_msg->st_msghdr.un_msgprop.val,
 		pst_msg->st_msghdr.un_msgprop.prop.len,
 		pst_msg->st_msghdr.un_msgprop.prop.crypt,
 		pst_msg->st_msghdr.un_msgprop.prop.split,
 		pst_msg->st_msghdr.un_msgprop.prop.resv);
-	logi("vtcpmsg header: bcd-%02x %02x %02x %02x %02x %02x",
+	logd("vtcpmsg header: bcd-%02x %02x %02x %02x %02x %02x",
 		pst_msg->st_msghdr.auc_bcd[0], pst_msg->st_msghdr.auc_bcd[1], 
 		pst_msg->st_msghdr.auc_bcd[2], pst_msg->st_msghdr.auc_bcd[3],
 		pst_msg->st_msghdr.auc_bcd[4], pst_msg->st_msghdr.auc_bcd[5]);
-	logi("vtcpmsg seqnum: %04x", pst_msg->st_msghdr.us_seqnum);
-	logi("vtcpmsg payload:");
-	for (i = 0; i < pst_msg->st_msghdr.un_msgprop.prop.len; i ++) {
-		printf("%02x ", pst_msg->pauc_payload[i]);
+	logd("vtcpmsg seqnum: %04x", pst_msg->st_msghdr.us_seqnum);
+	logd("vtcpmsg payload:");
+	if (gui_log_level) {
+		for (i = 0; i < pst_msg->st_msghdr.un_msgprop.prop.len; i ++) {
+			printf("%02x ", pst_msg->pauc_payload[i]);
+		}
+		printf("\n");
 	}
-	printf("\n");
-	logi("vtcpmsg crc: %02x", pst_msg->uc_crc);
+	logd("vtcpmsg crc: %02x", pst_msg->uc_crc);
 
 	return;
 }
@@ -248,11 +250,15 @@ void vtcpmsg_buf_dump(vtcpmsg_buf_s *pst_buf)
 {
 	int32_t i = 0;
 	
-	logi("VTCPMSG BUF:");
-	for (i = 0; i < pst_buf->ui_len; i ++) {
-		printf("%02x ", pst_buf->auc_buf[i]);	
+	logd("VTCPMSG BUF:");
+
+	if (gui_log_level) {
+		for (i = 0; i < pst_buf->ui_len; i ++) {
+			printf("%02x ", pst_buf->auc_buf[i]);	
+		}
+		printf("\n");
 	}
-	printf("\n");
+	return;
 }
 
 #ifdef __cplusplus

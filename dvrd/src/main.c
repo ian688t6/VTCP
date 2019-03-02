@@ -108,6 +108,7 @@ int32_t main(int argc, char *pc_argv[])
 		loge("invalid param");
 		return -1;
 	}
+//	log_set_level(1);
 	st_cfg.pc_addr = (const char *)pc_argv[1];
 	st_cfg.us_port = strtoul(pc_argv[2], NULL, 0); 	
 	st_cfg.auc_telnum[0] = bin2bcd(0x01);

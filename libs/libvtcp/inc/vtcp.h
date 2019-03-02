@@ -47,7 +47,7 @@ typedef struct {
 	uint16_t			us_len;
 } vrb_s;
 
-typedef int32_t (*vtcp_cb)(uint32_t ui_state, void *pv_data, uint32_t ui_size);
+typedef int32_t (*vtcp_cb)(uint16_t us_seqnum, uint16_t us_msgid, uint8_t *puc_payload, uint16_t us_len);
 typedef struct {
 	vtcp_cfg_s			st_cfg;
 	pthread_t			tid;
@@ -90,6 +90,8 @@ extern int32_t vtcp_authorise(vtcp_auth_msg_s *pst_msg, vtcprsp_s *pst_rsp);
 extern int32_t vtcp_hb(vtcprsp_s *pst_rsp);
 
 extern int32_t vtcp_unregister(vtcprsp_s *pst_rsp);
+
+extern void vtcp_setlog(uint32_t ui_level);
 
 #ifdef __cplusplus
 }

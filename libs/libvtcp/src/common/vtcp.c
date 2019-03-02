@@ -15,6 +15,7 @@ extern "C" {
 #endif
 
 static vtcp_s gst_vtcp;
+uint32_t gui_log_level = 0;
 
 static vrb_s *new_vrb(uint16_t us_msgid, uint8_t *puc_payload, uint16_t us_len)
 {
@@ -51,7 +52,6 @@ static int32_t wait_complete(int32_t i_flag)
 
 	if (1 == i_flag) {
 		i_retries = 0;
-		logi("complete");
 		return 0;
 	}
 
@@ -113,21 +113,21 @@ static void do_register_resp(vtcpmsg_s *pst_msg)
 	memcpy(pst_vrb->auc_payload, &st_resp, sizeof(vtcp_reg_rsp_s));	
 	pst_vrb->us_len = sizeof(vtcp_reg_rsp_s);
 	pst_vrb->ui_comp = 1;
-	logi("do register resp");
 
 	return;
 }
 
-static void dispatch(void)
+static int32_t dispatch(void)
 {
 	int32_t 	i_ret = 0;
 	vtcpmsg_s 	st_msg;
 	uint8_t		auc_payload[VTCP_PAYLOAD_LEN] = {0};
+	vtcp_s 		*pst_vtcp = &gst_vtcp;
 	
 	i_ret = vtcp_gotresp(&st_msg, auc_payload);
 	if (0 != i_ret) {
 		loge("vtcp got resp failed!");
-		return;
+		return -1;
 	}
 	switch (st_msg.st_msghdr.us_msgid) {
 	case PLATFORM_MSG(VTCP_MSG_RESP):
@@ -137,10 +137,15 @@ static void dispatch(void)
 	case PLATFORM_MSG(VTCP_MSG_REGISTER):
 		do_register_resp(&st_msg);
 	break;
-	default:break;
+	default:
+		if (pst_vtcp->pf_cb)
+			pst_vtcp->pf_cb(st_msg.st_msghdr.us_seqnum, st_msg.st_msghdr.us_msgid, 
+							st_msg.pauc_payload, 
+							st_msg.st_msghdr.un_msgprop.prop.len);
+	break;
 	}
 
-	return;
+	return i_ret;
 }
 
 void vtcp_setconf(vtcp_cfg_s *pst_val)
@@ -148,7 +153,7 @@ void vtcp_setconf(vtcp_cfg_s *pst_val)
 	vtcp_cfg_s *pst_cfg = &gst_vtcp.st_cfg;
 	*pst_cfg = *pst_val;
 
-	logi("vtcp server-%s:%d telnum-%02x%02x%02x%02x%02x%02x", 
+	logd("vtcp server-%s:%d telnum-%02x%02x%02x%02x%02x%02x", 
 	pst_cfg->pc_addr, pst_cfg->us_port,
 	pst_cfg->auc_telnum[0], pst_cfg->auc_telnum[1], pst_cfg->auc_telnum[2],
 	pst_cfg->auc_telnum[3], pst_cfg->auc_telnum[4], pst_cfg->auc_telnum[5]);
@@ -173,10 +178,15 @@ int32_t vtcp_conn(void)
 
 void vtcp_disconn(void)
 {
+	vrb_s *node, *node_tmp;
 	vtcp_s *pst_vtcp = &gst_vtcp;
 	
 	sock_disconn();
 	pthread_mutex_destroy(&pst_vtcp->st_lock);
+	list_for_each_entry_safe(node, node_tmp, &pst_vtcp->vrb_list, list) {
+		list_del(&node->list);
+		free(node);
+	}
 
 	return;
 }
@@ -216,9 +226,9 @@ int32_t vtcp_sendreq(vrb_s *pst_vrb)
 	pthread_mutex_lock(&pst_vtcp->st_lock);	
 	list_add(&pst_vrb->list, &pst_vtcp->vrb_list);
 	pthread_mutex_unlock(&pst_vtcp->st_lock);	
-	logi("[SENDREQ]");
+	logd("[SENDREQ]");
 	vtcpmsg_buf_dump(&st_msgbuf);
-	logi("------------------------------\r\n");
+	logd("------------------------------\r\n");
 	i_ret = sock_send(st_msgbuf.auc_buf, st_msgbuf.ui_len);
 	if (0 > i_ret) {
 		loge("vtcp register msg send failed!");
@@ -238,9 +248,9 @@ int32_t vtcp_gotresp(vtcpmsg_s *pst_msg, uint8_t *puc_payload)
 		return -1;
 	}
 
-	logi("[GOTRESP] len=%d", st_msgbuf.ui_len);
+	logd("[GOTRESP] len=%d", st_msgbuf.ui_len);
 	vtcpmsg_buf_dump(&st_msgbuf);
-	logi("------------------------------\r\n");
+	logd("------------------------------\r\n");
 	return vtcpmsg_dec(&st_msgbuf, pst_msg, puc_payload);
 }
 
@@ -250,7 +260,9 @@ void vtcp_loop(vtcp_cb pf_cb)
  	struct timeval st_timeval;
 	int32_t i_ret 	= 0;
 	int32_t i_maxfd = 0;
+	vtcp_s 	*pst_vtcp = &gst_vtcp;
 	
+	pst_vtcp->pf_cb = pf_cb;
 	if (i_maxfd <= sock_getfd()) {
 		i_maxfd = sock_getfd();
 	}	
@@ -269,7 +281,11 @@ void vtcp_loop(vtcp_cb pf_cb)
 			continue;
 		} else {
 			if (FD_ISSET(sock_getfd(), &st_rfds)) {
-				dispatch();	
+				i_ret = dispatch();
+				if (0 != i_ret) {
+					loge("socket connect wrong!");
+					break;
+				}
 			}
 		}
 	}
@@ -306,7 +322,6 @@ int32_t vtcp_register(vtcp_reg_msg_s *pst_msg, vtcp_reg_rsp_s *pst_rsp)
 	if (!i_ret) memcpy(pst_rsp, pst_vrb->auc_payload, pst_vrb->us_len);
 
 	/* Todo: decode term register response */
-	logi("do register done");
 	del_vrb(pst_vrb);
 
 	return i_ret;
@@ -356,7 +371,7 @@ int32_t vtcp_hb(vtcprsp_s *pst_rsp)
 	pst_vrb = new_vrb(VTCP_MSG_HB, NULL, 0);	
 	if (NULL == pst_vrb) {
 		loge("vrb alloc failed!");
-		return -1;	
+		return -1;
 	}
 
 	/* Todo: send heart beat request message */
@@ -397,6 +412,12 @@ int32_t vtcp_unregister(vtcprsp_s *pst_rsp)
 	del_vrb(pst_vrb);
 
 	return i_ret;
+}
+
+void vtcp_setlog(uint32_t ui_level)
+{
+	gui_log_level = ui_level;
+	return;
 }
 
 #ifdef __cplusplus

@@ -26,6 +26,14 @@ typedef enum {
 	VTCP_NO_TERM				= 4,
 } vtcp_reg_code_e;
 
+typedef enum {
+	VTCP_RET_SUCC				= 0,
+	VTCP_RET_FAIL				= 1,
+	VTCP_RET_MSGERROR			= 2,
+	VTCP_RET_NOTSUPPORT			= 3,
+	VTCP_RET_ALERT				= 4,
+} vtcp_retcode_e;
+
 typedef struct {
 	int32_t			ui_len;
 	uint8_t			auc_code[32];

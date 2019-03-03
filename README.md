@@ -1,4 +1,4 @@
-## The source VTCP for "Viehcle Terminal Communication Protocol" is a library developed by RuiFeng.Co.Ltd
+## The source VTCP for "Viehcle Terminal Communication Protocol JT-808" is a library
 
 libvtcp is a liberary for VTCP
 - common

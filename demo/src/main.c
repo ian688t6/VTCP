@@ -31,7 +31,9 @@ static int32_t msg_cb(uint16_t us_seqnum, uint16_t us_msgid, uint8_t *puc_payloa
 	printf("\n");
 	
 	switch (us_msgid) {
-	
+	case VTCP_MSG_CTLVIECLE:
+	break;
+	default: break;
 	}
 
 	return 0;

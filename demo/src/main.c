@@ -29,6 +29,10 @@ static int32_t msg_cb(uint16_t us_seqnum, uint16_t us_msgid, uint8_t *puc_payloa
 		}
 	}
 	printf("\n");
+	
+	switch (us_msgid) {
+	
+	}
 
 	return 0;
 }
@@ -60,8 +64,6 @@ static int32_t device_register(void)
 	logi("reg resp code: %02x len: %d %s", st_regrsp.uc_retcode, st_regrsp.ui_authcode_len, st_regrsp.ac_authcode);
 	if (VTCP_REGISTER_SUCC == st_regrsp.uc_retcode) {
 		/* Todo: save the auth code */
-//		vtcp_getconf(&st_cfg);
-//		memset(st_cfg.st_authcode.auc_code, 0x0, sizeof(vtcp_authcode_s));
 		st_auth.ui_len = st_regrsp.ui_authcode_len;
 		memcpy(st_auth.auc_code, st_regrsp.ac_authcode, st_auth.ui_len);
 		i_ret = vtcp_authsave(&st_auth);
@@ -69,7 +71,6 @@ static int32_t device_register(void)
 			loge("vtcp auth save failed");
 			return -1;
 		}
-//		vtcp_setconf(&st_cfg);
 	}
 	return st_regrsp.uc_retcode;
 }

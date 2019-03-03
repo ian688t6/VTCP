@@ -4,7 +4,7 @@ DIR_SRC = src
 SRC = $(wildcard ${DIR_SRC}/*.c)
 OBJ = $(patsubst %.c,${DIR_SRC}/%.o,$(notdir ${SRC})) 
 
-CFLAGS +=  -I./inc -I../libs/libvtcp/inc
+CFLAGS += -I../libs/libvtcp/inc
 ifeq ($(ARCH), x86)
 LDFLAG := -L$(VCP_BUILD)/lib -lvtcp -lpthread
 else

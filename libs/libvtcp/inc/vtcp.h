@@ -36,6 +36,9 @@ typedef enum {
 	VTCP_RET_ALERT				= 4,
 } vtcp_retcode_e;
 
+typedef int32_t (*vtcp_cb)( uint16_t us_seqnum, uint16_t us_msgid,
+							uint8_t *puc_payload, uint16_t us_len );
+
 typedef struct {
 	int32_t			ui_len;
 	uint8_t			auc_code[32];
@@ -47,16 +50,6 @@ typedef struct {
 	uint16_t 		us_port;
 	uint8_t			auc_telnum[6];
 } vtcp_cfg_s;
-
-typedef int32_t (*vtcp_cb)(uint16_t us_seqnum, uint16_t us_msgid, uint8_t *puc_payload, uint16_t us_len);
-typedef struct {
-	vtcp_cfg_s			st_cfg;
-	pthread_t			tid;
-	vtcp_cb				pf_cb;
-	uint16_t			us_seqnum;
-	pthread_mutex_t		st_lock;
-	struct list_head 	vrb_list;
-} vtcp_s;
 
 static inline uint8_t bin2bcd(uint8_t uc_val)
 {
@@ -93,6 +86,8 @@ extern int32_t vtcp_authorise(vtcp_auth_msg_s *pst_msg, vtcprsp_s *pst_rsp);
 extern int32_t vtcp_hb(vtcprsp_s *pst_rsp);
 
 extern int32_t vtcp_unregister(vtcprsp_s *pst_rsp);
+
+extern int32_t vtcp_commresp(vtcprsp_s *pst_rsp);
 
 extern void vtcp_setlog(uint32_t ui_level);
 

@@ -23,6 +23,7 @@ enum {
 	VTCP_MSG_AUTHORISE 			= 0x0102,
 	VTCP_MSG_HB 				= 0x0002,
 	VTCP_MSG_UNREGISTER 		= 0x0003,
+	VTCP_MSG_CTLVIECLE			= 0x8105,
 };
 
 #define PLATFORM_MSG(msgcode) (msgcode | (0x01 << 15))

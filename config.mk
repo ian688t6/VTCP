@@ -16,5 +16,5 @@ export OBJDUMP := $(CROSS_COMPILE)objdump
 export NM := $(CROSS_COMPILE)nm
 
 export CFLAGS = -Os -Wall -Werror
-export INC := -I$(VCP_TOP)/inc
+export INC := 
 

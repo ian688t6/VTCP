@@ -49,6 +49,8 @@ extern int32_t tmng_hbrsp_dec(uint8_t *puc_payload, uint16_t us_len, vtcprsp_s *
 
 extern int32_t tmng_unregrsp_dec(uint8_t *puc_payload, uint16_t us_len, vtcprsp_s *pst_resp);
 
+extern int32_t tmng_commrsp_enc(uint8_t *puc_payload, uint16_t *pus_payload_len, vtcprsp_s *pst_resp);
+
 #ifdef __cplusplus
 }
 #endif

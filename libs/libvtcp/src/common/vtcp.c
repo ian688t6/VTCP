@@ -15,6 +15,15 @@ extern "C" {
 #endif
 
 typedef struct {
+	vtcp_cfg_s			st_cfg;
+	pthread_t			tid;
+	vtcp_cb				pf_cb;
+	uint16_t			us_seqnum;
+	pthread_mutex_t		st_lock;
+	struct list_head 	vrb_list;
+} vtcp_s;
+
+typedef struct {
 	struct list_head 	list;
 	uint16_t			us_seqnum;
 	uint16_t			us_msgid;
@@ -91,6 +100,29 @@ static vrb_s *search_forvrb(uint16_t us_msgid, uint16_t us_seqnum)
 	return NULL;
 }
 
+static int32_t sendrsp(uint16_t us_msgid, uint8_t *puc_payload, uint16_t us_len)
+{
+	int32_t			i_ret = 0;
+	vtcpmsg_s 		st_msg;
+	vtcpmsg_buf_s 	st_msgbuf;
+	vtcp_s 			*pst_vtcp = &gst_vtcp;
+
+	st_msg.uc_id0 							= VTCP_ID_CODE;
+	st_msg.pauc_payload 					= puc_payload;
+	st_msg.st_msghdr.us_msgid 				= us_msgid;
+	st_msg.st_msghdr.un_msgprop.prop.len 	= us_len;
+	st_msg.st_msghdr.un_msgprop.prop.crypt 	= 0;
+	st_msg.st_msghdr.un_msgprop.prop.split 	= 0;
+	st_msg.st_msghdr.us_seqnum 				= pst_vtcp->us_seqnum;
+	memcpy(st_msg.st_msghdr.auc_bcd, pst_vtcp->st_cfg.auc_telnum, sizeof(st_msg.st_msghdr.auc_bcd));
+	vtcpmsg_enc(&st_msg, &st_msgbuf);
+	i_ret = sock_send(st_msgbuf.auc_buf, st_msgbuf.ui_len);
+	if (0 > i_ret) {
+		loge("vtcp register msg send failed!");
+	}
+	return i_ret;
+}
+
 static int32_t sendreq(vrb_s *pst_vrb)
 {
 	int32_t			i_ret = 0;
@@ -146,7 +178,6 @@ static int32_t gotresp(vtcpmsg_s *pst_msg, uint8_t *puc_payload)
 	logd("------------------------------\r\n");
 	return vtcpmsg_dec(&st_msgbuf, pst_msg, puc_payload);
 }
-
 
 static void do_common_resp(vtcpmsg_s *pst_msg)
 {
@@ -475,6 +506,21 @@ int32_t vtcp_unregister(vtcprsp_s *pst_rsp)
 		
 	/* Todo: del vrb */
 	del_vrb(pst_vrb);
+
+	return i_ret;
+}
+
+int32_t vtcp_commresp(vtcprsp_s *pst_rsp)
+{
+	int32_t 	i_ret = 0;
+	uint16_t	us_len = 0;
+	uint8_t		auc_payload[VTCP_PAYLOAD_LEN] = {0};
+
+	/* Todo: encode term comm resp payload */
+	tmng_commrsp_enc(auc_payload, &us_len, pst_rsp);
+
+	/* Todo: send resp */
+	sendrsp(VTCP_MSG_RESP, auc_payload, us_len);
 
 	return i_ret;
 }

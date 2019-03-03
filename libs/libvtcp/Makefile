@@ -9,6 +9,7 @@ SRC += src/tmng/tmng_reg.c
 SRC += src/tmng/tmng_unreg.c
 SRC += src/tmng/tmng_auth.c
 SRC += src/tmng/tmng_hb.c
+SRC += src/tmng/tmng_resp.c
 
 OBJ = $(patsubst %.c,%.o,${SRC}) 
 
